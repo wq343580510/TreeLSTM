@@ -69,4 +69,5 @@ class ChildSumTreeLSTM(nn.Module):
                 child_c,child_h = child_c.cuda(),child_h.cuda()
             for idx in xrange(tree.num_children):
                 child_c[idx],child_h[idx] = tree.children[idx].state
-            return child_c,child_h
+
+        return child_c,child_h
