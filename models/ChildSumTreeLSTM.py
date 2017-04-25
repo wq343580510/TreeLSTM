@@ -39,7 +39,7 @@ class ChildSumTreeLSTM(nn.Module):
         # removing extra singleton dimension
         f = F.torch.unsqueeze(f,1)
 
-        fc = F.torch.squeeze(F.torch.mul(f.child_c),1)
+        fc = F.torch.squeeze(F.torch.mul(f,child_c),1)
         c = F.torch.mul(i,u) + F.torch.sum(fc,0)
         h = F.torch.mul(o,F.tanh(c))          # mul element-wise
 
@@ -51,14 +51,14 @@ class ChildSumTreeLSTM(nn.Module):
         for idx in xrange(tree.num_children):
             _ = self.forward(tree.children[idx],inputs)
         child_c,child_h = self.get_child_states(tree)
-        tree.state = self.node_forward(embs[tree.idx-1],child_c,child_h)
+        tree.state = self.recursive_unit(embs[tree.idx-1],child_c,child_h)
         return tree.state
 
     def get_child_states(self,tree):
         # add extra singleton dimension in middle
         # because pytorch need mini batched
         if tree.num_children == 0:
-            child_c = Var(torch.zeros(1,1,self.h_dim))
+            child_c = Var(torch.zeros(1, 1, self.h_dim))
             child_h = Var(torch.zeros(1, 1, self.h_dim))
             if self.useCuda:
                 child_c,child_h = child_c.cuda(),child_h.cuda()
@@ -71,3 +71,28 @@ class ChildSumTreeLSTM(nn.Module):
                 child_c[idx],child_h[idx] = tree.children[idx].state
 
         return child_c,child_h
+
+
+class RankerTreeLSTM(nn.Module):
+    def __init__(self,cuda,vocab_size,in_dim,hidden_dim):
+        super(RankerTreeLSTM, self).__init__()
+        self.cudaFlag = cuda
+        self.childsumtreelstm = ChildSumTreeLSTM(cuda,vocab_size,in_dim,hidden_dim)
+        self.ow = nn.Linear(hidden_dim,1)
+
+    def forward(self,tree,inputs):
+        state,hidden =self.childsumtreelstm(tree,Var(torch.LongTensor(inputs)))
+        output = self.ow(state)
+        return output
+
+    def predict(self,tree,inputs):
+        output = self.forward(tree,inputs)
+        return torch.sum(output.data)
+
+    def train_pair(self,pred,pinput,gold,ginput):
+        score1 = self.forward(pred, pinput)
+        score2 = self.forward(gold, ginput)
+        loss = score1-score2
+        if loss > 0:
+            loss.backward()
+

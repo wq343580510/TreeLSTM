@@ -1,7 +1,8 @@
 class Tree:
-    def __init__(self,word,tag):
+    def __init__(self,word,idx,tag):
         self.parent = None
         self.word = word
+        self.idx = idx
         self.tag = tag
         self.num_children = 0
         self.children = {}

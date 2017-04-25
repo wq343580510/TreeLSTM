@@ -1,45 +1,48 @@
 from utils import read_tree
 from eval.evaluate import evaluate
 import os
+import torch
 import utils
 from Vocab import Vocab
-
+import os
 class data_manager(object):
-    max_degree = 0
-    def __init__(self,batch,train_kbest = None,train_gold = None,dev_kbest = None,dev_gold = None,
-                 test_kbest = None,test_gold = None,vocab_path = None):
+    def __init__(self,args):
         self.vocab = None
-        self.train_kbest = train_kbest
-        self.train_gold = train_gold
-        self.dev_kbest = dev_kbest
-        self.dev_gold = dev_gold
-        self.test_kbest = test_kbest
-        self.test_gold = test_gold
-        if os.path.exists(vocab_path):
+        self.train_kbest = os.path.join(args.dir,args.train+'.kbest')
+        self.train_gold = os.path.join(args.dir,args.train+'.gold')
+        self.dev_kbest = os.path.join(args.dir,args.dev+'.kbest')
+        self.dev_gold = os.path.join(args.dir,args.dev+'.gold')
+        self.test_kbest = os.path.join(args.dir,args.test+'.kbest')
+        self.test_gold = os.path.join(args.dir,args.test+'.gold')
+        self.vocab_path = os.path.join(args.dir,args.vocab)
+        self.model_path = os.path.join(args.dir,args.model_file)
+        if os.path.exists(self.vocab_path):
             print 'load vocab'
-            self.vocab = utils.load_dict(vocab_path)
+            self.vocab = torch.load(self.vocab_path)
         else:
             print 'creat vocab'
             self.vocab = Vocab(self.train_gold)
             print 'save dictionary'
-            utils.save_dict(self.vocab, vocab_path)
+            torch.save(self.vocab, self.vocab_path)
         print 'vocab size:' + str(self.vocab.size())
         print 'read dev data'
-        self.dev_data = read_data(dev_kbest,dev_gold,self.vocab)
+        self.dev_data = read_data(self.dev_kbest,self.dev_gold,self.vocab)
         print 'number of dev:'+str(len(self.dev_data))
         print 'read train data'
-        self.train_data = read_data(train_kbest,train_gold,self.vocab)
-        print 'number of dev:' + str(len(self.train_data))
+        self.train_data = read_data(self.train_kbest,self.train_gold,self.vocab)
+        print 'number of train:' + str(len(self.train_data))
 
 
 class instance(object):
-    def __init__(self,kbest,scores,gold,lines,gold_lines):
+    def __init__(self,kbest,scores,gold,lines,gold_lines,inputs,gold_inp):
         self.kbest = kbest
         self.scores = scores
         self.gold = gold
         self.gold_lines = gold_lines
         self.lines = lines
         self.f1score = []
+        self.inputs = inputs
+        self.gold_input = gold_inp
         #self.maxid = self.get_oracle_index()
 
     def set_f1(self):
@@ -78,6 +81,8 @@ def read_data(kbest_filename, gold_filename, vocab):
     onescores = []
     lines = []
     onelines = []
+    oneinput = []
+    inputs = []
     i = 0
     while i < len(kbest_data):
         line = kbest_data[i]
@@ -86,6 +91,7 @@ def read_data(kbest_filename, gold_filename, vocab):
                 res = read_tree(tree, vocab)
                 onebest.append(res[0])
                 onelines.append(res[1])
+                oneinput.append(res[2])
                 tree = []
             elif not '_' in line:
                 onescores.append(float(line))
@@ -96,9 +102,11 @@ def read_data(kbest_filename, gold_filename, vocab):
                 kbest.append(onebest[:])
                 scores.append(onescores[:])
                 lines.append(onelines)
+                inputs.append(oneinput[:])
                 onelines = []
                 onebest = []
                 onescores = []
+                oneinput = []
         i += 1
 
     with open(gold_filename, 'r') as reader:
@@ -107,21 +115,19 @@ def read_data(kbest_filename, gold_filename, vocab):
     list = []
     gold = []
     gold_lines = []
+    gold_inp = []
     for line in data:
         if line.strip() == '':
             res = read_tree(list,vocab)
             gold.append(res[0])
             gold_lines.append(res[1])
+            gold_inp.append(res[2])
             list = []
         else:
             list.append(line)
     dev_data = []
-    num = 900
-    for a,b,c,d,e in zip(kbest, scores, gold, lines, gold_lines):
-        if num == 0:
-            break
-        num = num - 1
+    for a,b,c,d,e,f,g in zip(kbest, scores, gold, lines, gold_lines,inputs,gold_inp):
         if len(c.children) == 0:
             continue
-        dev_data.append(instance(a,b,c,d,e))
+        dev_data.append(instance(a,b,c,d,e,f,g))
     return dev_data

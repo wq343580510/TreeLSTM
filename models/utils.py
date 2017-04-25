@@ -1,4 +1,4 @@
-import tree.Tree as Tree
+from tree import *
 import pickle
 
 def save_dict(vocab,output_file):
@@ -17,15 +17,17 @@ def read_tree(list,vocab):
     nodes = []
     root = None
     retlist = []
+    x = []
     for i in range(len(list)):
         att_list.append(list[i].split())
         word = att_list[i][1]
         tag = att_list[i][3]
         val = vocab.index(word)
         tag_idx = vocab.indexoftag(tag)
-        nodes.append(Tree(val,tag_idx))
+        nodes.append(Tree(val,i,tag_idx))
         parent = att_list[i][6]
-        label = att_list[i][6]
+        label = att_list[i][7]
+        x.append(val)
         retlist.append(word+'#'+parent+'#'+label)
 
     for i in range(len(list)):
@@ -35,4 +37,4 @@ def read_tree(list,vocab):
         elif parent == -1:
             root = nodes[i]
 
-    return root,retlist
+    return root,retlist,x
