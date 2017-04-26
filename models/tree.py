@@ -34,6 +34,12 @@ class Tree:
         depth_first_preorder(self, nodes)
         return nodes
 
+    def clear_state(self):
+        self.state = None
+        if self.num_children > 0:
+            for i in range(0,self.num_children):
+                self.children[i].clear_state()
+        return
 
 
 def depth_first_preorder(tree,nodes):

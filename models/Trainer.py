@@ -35,7 +35,7 @@ class Trainer(object):
             err = self.train_step(dataset[idx])
             loss += err
             k += 1
-            if k%self.args.batch_size == 0:
+            if k%self.args.batch_update == 0:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
         self.optimizer.step()

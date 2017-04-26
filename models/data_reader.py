@@ -1,10 +1,8 @@
-from utils import read_tree
-from eval.evaluate import evaluate
-import os
 import torch
-import utils
 from Vocab import Vocab
 import os
+from train_iterator import *
+
 class data_manager(object):
     def __init__(self,args):
         self.vocab = None
@@ -16,58 +14,27 @@ class data_manager(object):
         self.test_gold = os.path.join(args.dir,args.test+'.gold')
         self.vocab_path = os.path.join(args.dir,args.vocab)
         self.model_path = os.path.join(args.dir,args.model_file)
+        self.batch_size = args.batch_size
         if os.path.exists(self.vocab_path):
             print 'load vocab'
             self.vocab = torch.load(self.vocab_path)
         else:
             print 'creat vocab'
             self.vocab = Vocab(self.train_gold)
+            self.vocab.create_voc(self.dev_gold)
             print 'save dictionary'
             torch.save(self.vocab, self.vocab_path)
         print 'vocab size:' + str(self.vocab.size())
         print 'read dev data'
         self.dev_data = read_data(self.dev_kbest,self.dev_gold,self.vocab)
         print 'number of dev:'+str(len(self.dev_data))
-        print 'read train data'
-        self.train_data = read_data(self.train_kbest,self.train_gold,self.vocab)
-        print 'number of train:' + str(len(self.train_data))
+        if args.use_batch:
+            self.train_generator = train_iterator(self.train_kbest,self.train_gold,self.vocab,self.batch_size)
+        else:
+            print 'read train data'
+            self.train_data = read_data(self.train_kbest,self.train_gold,self.vocab)
+            print 'number of train:' + str(len(self.train_data))
 
-
-class instance(object):
-    def __init__(self,kbest,scores,gold,lines,gold_lines,inputs,gold_inp):
-        self.kbest = kbest
-        self.scores = scores
-        self.gold = gold
-        self.gold_lines = gold_lines
-        self.lines = lines
-        self.f1score = []
-        self.inputs = inputs
-        self.gold_input = gold_inp
-        #self.maxid = self.get_oracle_index()
-
-    def set_f1(self):
-        i = 0
-        for l in self.lines:
-            f1 = evaluate(l, self.gold_lines)[0]
-            self.f1score.append(f1)
-            i+=1
-
-    def get_oracle_index(self):
-        max = 0
-        maxid = 0
-        i = 0
-        for list in self.lines:
-            temp = []
-            for line in list:
-                temp.append(line)
-            temp.append('\n')
-            res = evaluate(temp, self.gold_lines)[0]
-            self.f1score.append(res)
-            if res > max:
-                max = res
-                maxid = i
-            i += 1
-        return maxid
 
 def read_data(kbest_filename, gold_filename, vocab):
     with open(kbest_filename, 'r') as reader:

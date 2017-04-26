@@ -1,6 +1,7 @@
 from evaluate import *
 import random
 import torch
+from tqdm import tqdm
 from torch.autograd import Variable as Var
 def evaluate_baseline(data):
     pred_trees = []
@@ -13,7 +14,7 @@ def evaluate_baseline(data):
     print 'baseline: %.4f' % (evaluate(pred_trees,gold_trees)[0])
 
 def evaluate_baseline_random(data):
-    random.seed(121)
+    random.seed(121432)
     pred_trees = []
     gold_trees = []
     for i, inst in enumerate(data):
@@ -69,9 +70,11 @@ def evaluate_oracle_worst(data):
 
 
 def evaluate_dataset_point(model, data):
+    model.eval()
     pred_trees = []
     gold_trees = []
-    for inst in data:
+    for i in tqdm(xrange(len(data)), desc='evaluating process:'):
+        inst = data[i]
         pred_scores = []
         for i in range(len(inst.kbest)):
             pred_scores.append(model.predict(inst.kbest[i],inst.inputs[i]))

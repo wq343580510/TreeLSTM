@@ -4,13 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable as Var
 
-from models import Constants
+import Constants
 
 
 class ChildSumTreeLSTM(nn.Module):
     def __init__(self,cuda,vocab_size,in_dim,h_dim):
         super(ChildSumTreeLSTM, self).__init__()
-        self.useCuda = cuda
+        self.cudaFlag = cuda
         self.in_dim = in_dim
         self.h_dim = h_dim
         self.emb = nn.Embedding(vocab_size, in_dim, Constants.PAD) # padding idx
@@ -60,12 +60,12 @@ class ChildSumTreeLSTM(nn.Module):
         if tree.num_children == 0:
             child_c = Var(torch.zeros(1, 1, self.h_dim))
             child_h = Var(torch.zeros(1, 1, self.h_dim))
-            if self.useCuda:
+            if self.cudaFlag:
                 child_c,child_h = child_c.cuda(),child_h.cuda()
         else:
             child_c = Var(torch.Tensor(tree.num_children,1,self.h_dim))
             child_h = Var(torch.Tensor(tree.num_children, 1, self.h_dim))
-            if self.useCuda:
+            if self.cudaFlag:
                 child_c,child_h = child_c.cuda(),child_h.cuda()
             for idx in xrange(tree.num_children):
                 child_c[idx],child_h[idx] = tree.children[idx].state
@@ -81,17 +81,23 @@ class RankerTreeLSTM(nn.Module):
         self.ow = nn.Linear(hidden_dim,1)
 
     def forward(self,tree,inputs):
-        state,hidden =self.childsumtreelstm(tree,Var(torch.LongTensor(inputs)))
+        input = Var(torch.LongTensor(inputs))
+        if self.cudaFlag:
+            input = input.cuda()
+        state,hidden =self.childsumtreelstm.forward(tree,input)
         output = self.ow(state)
         return output
 
     def predict(self,tree,inputs):
         output = self.forward(tree,inputs)
+        tree.clear_state()
         return torch.sum(output.data)
 
     def train_pair(self,pred,pinput,gold,ginput):
         score1 = self.forward(pred, pinput)
         score2 = self.forward(gold, ginput)
+        pred.clear_state()
+        gold.clear_state()
         loss = score1-score2
         if loss > 0:
             loss.backward()

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-nn.LSTM
+
 class TreeLSTM(nn.Module):
     def __init__(self,config):
         super(TreeLSTM,self).__init__()
